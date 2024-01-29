@@ -117,29 +117,8 @@ int main()
     return 1;
   }
 
-  //pcap_if_t *devs;
-  //char* mydev;
-  //int i=0;
-  //printf("Please select a device to sniff on from below...\n\n");
-  //for (devs=ldev; devs; devs=devs->next)
-  //{
-    //mydev=strdup(devs->name);
-    //if (mydev=="eth0")
-    //{
-      //i=1;
-    //}
-    //printf("-> %s\n", mydev);
-  //}
-  //if (i==0)
-  //{
-    //printf("\033[1;31mSorry! Bloodhound only supports ethernet packet capturing for now!\033[1;0m\n\n");
-    //return 1;
-  //}
-  //pcap_freealldevs(ldev);
-
   signal(SIGINT, signal_beta);
-  //printf("\nEnter the name of device : ");
-  //scanf("%s",device);
+
   printf("\n\033[1;33mOpening handle for device : %s\033[1;0m\n",device);
   
   handle = pcap_create(device, errbuf);
