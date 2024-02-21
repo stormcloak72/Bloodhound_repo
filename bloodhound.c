@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <ctype.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 
@@ -14,10 +15,11 @@ void process_packet(unsigned char *user, const struct pcap_pkthdr *pkthdr, const
   int ether_offset=12;
   int payload_offset=14;
   int payload_length=pkthdr->len-payload_offset;
+  unsigned char ip_header_length;
 
   if (packet[ether_offset]==0x08 && packet[ether_offset+1]==0x00)
   {
-    unsigned char ip_header_length=(packet[payload_offset]&0x0F)*4;
+    ip_header_length=(packet[payload_offset]&0x0F)*4;
     unsigned char source_ip[4];
     unsigned char dest_ip[4];
 
@@ -34,6 +36,54 @@ void process_packet(unsigned char *user, const struct pcap_pkthdr *pkthdr, const
     if (protocol==0x06)
     {
       printf("Protocol : TCP\n");
+
+      int tcp_offset=payload_offset+ip_header_length;
+      struct tcphdr *tcp_header=(struct tcphdr *)(packet+tcp_offset);
+      unsigned char tcp_flags=tcp_header->th_flags;
+
+      if (tcp_flags & TH_SYN)
+      {
+	      printf("Flags : SYN\n");
+      }
+      else if ((tcp_flags & TH_SYN) && (tcp_flags & TH_ACK))
+      {
+	      printf("Flags : SYN-ACK\n");
+      }
+      else if (tcp_flags & TH_ACK)
+      {
+	      printf("Flags : ACK\n");
+      }
+      else if (tcp_flags & TH_FIN)
+      {
+	      printf("Flags : FIN\n");
+      }
+      else if (tcp_flags & TH_RST)
+      {
+	      printf("Flags : RST\n");
+      }
+      else if (tcp_flags & TH_URG)
+      {
+	      printf("Flags : URG\n");
+      }
+      else if (tcp_flags & TH_PUSH)
+      {
+	      printf("Flags : PUSH\n");
+      }
+      else if ((tcp_flags & TH_PUSH) && (tcp_flags & TH_SYN))
+      {
+	      printf("Flags : SYN-PUSH\n");
+      }
+      else
+      {
+	      printf("Flags : NONE\n");
+      }
+
+      uint32_t seq_num = ntohs(tcp_header->th_seq);
+      uint32_t ack_num = ntohs(tcp_header->th_ack);
+
+      printf("Sequence number : %u\n",seq_num);
+      printf("Acknowledgement number : %u\n",ack_num);
+
       unsigned short src_port=(packet[payload_offset+20]<<8) | packet[payload_offset+21];
       unsigned short dest_port=(packet[payload_offset+22]<<8) | packet[payload_offset+23];
 
@@ -66,11 +116,43 @@ void process_packet(unsigned char *user, const struct pcap_pkthdr *pkthdr, const
 
     if (flags&0x40)
     {
-      printf("DF flag : Is set\n");
+      printf("Fragmentation : NO\n");
     }
     else
     {
-      printf("MF flag : Is set\n");
+      printf("Fragmentation : YES\n");
+    }
+
+    if (ip_header_length > 20)
+    {
+	    unsigned char options_length = ip_header_length - 20;
+	    printf("Options length : %u bytes\n",options_length);
+
+	    for (int i=0; i < options_length;)
+	    {
+		    printf("Option type : %u\n", packet[payload_offset+20+i]);
+
+		    if (packet[payload_offset+20+i] !=0)
+		    {
+			    unsigned char option_length = packet[payload_offset+20+i+1];
+
+			    printf("Option length : %u bytes\n", option_length);
+
+			    printf("Option data : ");
+			    for (int j=0; j<option_length - 2; ++j)
+			    {
+				    printf("%02X ", packet[payload_offset+20+i+2+j]);
+			    }
+			    printf("\n");
+			    i+=option_length;
+		    }
+
+		    else
+		    {
+			    printf("Option data : NONE\n");
+			    break;
+		    }
+	    }
     }
   }
 
@@ -117,8 +199,29 @@ int main()
     return 1;
   }
 
-  signal(SIGINT, signal_beta);
+  //pcap_if_t *devs;
+  //char* mydev;
+  //int i=0;
+  //printf("Please select a device to sniff on from below...\n\n");
+  //for (devs=ldev; devs; devs=devs->next)
+  //{
+    //mydev=strdup(devs->name);
+    //if (mydev=="eth0")
+    //{
+      //i=1;
+    //}
+    //printf("-> %s\n", mydev);
+  //}
+  //if (i==0)
+  //{
+    //printf("\033[1;31mSorry! Bloodhound only supports ethernet packet capturing for now!\033[1;0m\n\n");
+    //return 1;
+  //}
+  //pcap_freealldevs(ldev);
 
+  signal(SIGINT, signal_beta);
+  //printf("\nEnter the name of device : ");
+  //scanf("%s",device);
   printf("\n\033[1;33mOpening handle for device : %s\033[1;0m\n",device);
   
   handle = pcap_create(device, errbuf);
